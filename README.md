@@ -44,7 +44,7 @@ Complete reproducible codebase and automated provisioning suite to transform a *
 ## 2. Directory Structure
 
 ```text
-~/projects/b760h/
+~/Projects/b760h/
 ├── README.md              # Complete technical documentation & guide
 ├── provision_alpine.sh    # Automated end-to-end setup script (run from PC)
 ├── start_alpine.sh        # Android host bootstrap script (/data/start_alpine.sh)
@@ -90,7 +90,7 @@ If the box ever encounters a bootloop or corrupted partition:
 Once the box has booted into Android and has an IP address:
 
 ```bash
-cd ~/projects/b760h
+cd ~/Projects/b760h
 ./provision_alpine.sh 192.168.8.142
 ```
 
