@@ -53,5 +53,5 @@ killall bootanimation 2>/dev/null || true
 # 8. Start HDMI terminal daemon (runs fbpad attached to tmux 'hdmi' session)
 (
     sleep 2
-    /system/xbin/busybox chroot /cache/alpine /bin/sh -c "export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && exec su -s /bin/sh darrel -c '/usr/local/bin/hdmi-terminal'" >/data/hdmi_boot.log 2>&1
+    /system/xbin/busybox chroot /cache/alpine /bin/sh -c "export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 LC_ALL=C.UTF-8 && exec su -s /bin/sh darrel -c '/usr/local/bin/hdmi-terminal'" >/data/hdmi_boot.log 2>&1
 ) &

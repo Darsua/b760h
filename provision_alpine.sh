@@ -173,6 +173,7 @@ echo -e "127.0.0.1\tb760h localhost\n::1\t\tb760h localhost" > /etc/hosts
 
 # Configure tmux
 echo 'set -g default-terminal "linux"' > /home/darrel/.tmux.conf
+echo 'set -as terminal-features ",*:UTF-8"' >> /home/darrel/.tmux.conf
 echo 'set -g status off' >> /home/darrel/.tmux.conf
 chown darrel:darrel /home/darrel/.tmux.conf
 
@@ -224,6 +225,9 @@ chmod 755 /usr/local/bin/poweroff
 
 mkdir -p /etc/fish/conf.d
 cat << 'FISH_EOF' > /etc/fish/conf.d/status.fish
+set -gx LANG C.UTF-8
+set -gx LC_ALL C.UTF-8
+
 if status is-interactive
     function fish_greeting
         /usr/local/bin/system-status

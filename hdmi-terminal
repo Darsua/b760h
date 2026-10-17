@@ -4,6 +4,8 @@ export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH
 export HOME=/home/darrel
 export USER=darrel
 export TERM=linux
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
 cd /home/darrel
 
 # Start USB Keyboard bridge if not already running
@@ -16,9 +18,9 @@ while [ ! -c /dev/graphics/fb0 ]; do
 done
 
 while true; do
-    if ! tmux has-session -t hdmi 2>/dev/null; then
-        tmux new-session -d -s hdmi -n console /usr/bin/fish
+    if ! tmux -u has-session -t hdmi 2>/dev/null; then
+        tmux -u new-session -d -s hdmi -n console /usr/bin/fish
     fi
-    /usr/local/bin/fbpad tmux attach -t hdmi < /dev/null
+    /usr/local/bin/fbpad tmux -u attach -t hdmi < /dev/null
     sleep 1
 done
