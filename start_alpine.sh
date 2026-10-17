@@ -5,15 +5,15 @@
 setprop persist.adb.tcp.port 5555
 setprop service.adb.tcp.port 5555
 
-# 2. Wait until Wi-Fi / Ethernet has an active IP address (up to 30s)
+# 2. Wait until Wi-Fi / Ethernet has an active IP address (up to 45s)
 WAIT=0
-while [ $WAIT -lt 15 ]; do
+while [ $WAIT -lt 30 ]; do
     IP_WLAN=$(getprop dhcp.wlan0.ipaddress)
     IP_ETH=$(getprop dhcp.eth0.ipaddress)
     if [ -n "$IP_WLAN" ] || [ -n "$IP_ETH" ]; then
         break
     fi
-    sleep 2
+    sleep 1.5
     WAIT=$((WAIT + 1))
 done
 
@@ -41,11 +41,11 @@ done
 /system/bin/setprop sys.boot_completed 1
 /system/bin/setprop dev.bootcomplete 1
 
-# Only stop Android Java userland (Zygote) if Alpine SSH is present and network is up
-if [ -x /cache/alpine/usr/sbin/sshd ] && { [ -n "$IP_WLAN" ] || [ -n "$IP_ETH" ]; }; then
-    /system/bin/setprop ctl.stop bootanim
-    /system/bin/setprop ctl.stop zygote
-fi
+# 8. Dismiss boot animation and stop Android Java userland (Zygote)
+/system/bin/setprop service.bootanim.exit 1
+/system/bin/setprop ctl.stop bootanim
+killall bootanimation 2>/dev/null || true
+/system/bin/setprop ctl.stop zygote
 
 # 8. Start HDMI terminal daemon (runs fbpad attached to tmux 'hdmi' session)
 (
