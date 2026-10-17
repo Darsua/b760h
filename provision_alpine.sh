@@ -198,6 +198,30 @@ chmod 755 \
     /usr/local/bin/wifi-scan \
     /usr/local/bin/wifi-connect
 
+cat << 'REBOOT_EOF' > /usr/local/bin/reboot
+#!/bin/sh
+if [ "$(id -u)" -ne 0 ]; then
+    echo "reboot: Need root privileges (try 'sudo reboot')"
+    exit 1
+fi
+echo "Syncing disks and rebooting B760H..."
+sync
+exec /bin/busybox reboot -f
+REBOOT_EOF
+chmod 755 /usr/local/bin/reboot
+
+cat << 'POWEROFF_EOF' > /usr/local/bin/poweroff
+#!/bin/sh
+if [ "$(id -u)" -ne 0 ]; then
+    echo "poweroff: Need root privileges (try 'sudo poweroff')"
+    exit 1
+fi
+echo "Syncing disks and powering off B760H..."
+sync
+exec /bin/busybox poweroff -f
+POWEROFF_EOF
+chmod 755 /usr/local/bin/poweroff
+
 mkdir -p /etc/fish/conf.d
 cat << 'FISH_EOF' > /etc/fish/conf.d/status.fish
 if status is-interactive
