@@ -110,17 +110,27 @@ echo "Updating apk repositories..."
 apk update
 
 echo "Installing Alpine packages..."
-apk add --no-cache ca-certificates openssh sudo fish tmux htop git python3 py3-pip py3-evdev iw build-base linux-headers
+apk add --no-cache ca-certificates openssh sudo fish tmux htop git python3 py3-pip py3-evdev iw curl nano bash tzdata wpa_supplicant build-base linux-headers
 # Switch back to https once ca-certificates is installed
 sed -i 's|http://|https://|g' /etc/apk/repositories 2>/dev/null || true
+
+echo "Configuring timezone & hostname..."
+cp /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
+echo 'Asia/Jakarta' > /etc/timezone
+echo 'b760h' > /etc/hostname
+hostname b760h 2>/dev/null || true
 BOOTSTRAP_EOF
 cat << 'BOOTSTRAP_EOF' >> /tmp/bootstrap_internal.sh
 
 echo "Creating user darrel and groups..."
 addgroup -g 1004 aid_input 2>/dev/null || true
+addgroup -g 3003 aid_inet 2>/dev/null || true
+addgroup -g 3004 aid_net_raw 2>/dev/null || true
 id darrel 2>/dev/null || adduser -s /usr/bin/fish -D darrel
 addgroup darrel wheel
 addgroup darrel aid_input
+addgroup darrel aid_inet
+addgroup darrel aid_net_raw
 echo '%wheel ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/wheel
 chmod 440 /etc/sudoers.d/wheel
 passwd -u darrel 2>/dev/null || sed -i "s/^darrel:!:/darrel:*:/" /etc/shadow

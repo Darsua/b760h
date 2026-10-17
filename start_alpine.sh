@@ -28,16 +28,19 @@ done
 /system/xbin/busybox mkdir -p /cache/alpine/data
 /system/xbin/busybox mount -o bind /data /cache/alpine/data 2>/dev/null
 
-# 5. Sync system clock via NTP inside Alpine (backgrounded)
+# 5. Set system hostname inside chroot
+/system/xbin/busybox chroot /cache/alpine /bin/hostname b760h 2>/dev/null || true
+
+# 6. Sync system clock via NTP inside Alpine (backgrounded)
 (
     sleep 2
     /system/xbin/busybox chroot /cache/alpine /bin/sh -c "export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && ntpd -n -q -p pool.ntp.org || ntpd -n -q -p time.google.com"
 ) &
 
-# 6. Start OpenSSH daemon
+# 7. Start OpenSSH daemon
 /system/xbin/busybox chroot /cache/alpine /usr/sbin/sshd 2>/dev/null
 
-# 7. Disarm Android 5-minute boot failure watchdog
+# 8. Disarm Android 5-minute boot failure watchdog
 /system/bin/setprop sys.boot_completed 1
 /system/bin/setprop dev.bootcomplete 1
 
