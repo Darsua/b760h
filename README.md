@@ -46,6 +46,7 @@ Complete reproducible codebase and automated provisioning suite to transform a *
 ```text
 ~/Projects/b760h/
 ├── README.md              # Complete technical documentation & guide
+├── flash.sh               # Standalone SP Flash Tool v5 launcher (self-contained)
 ├── provision_alpine.sh    # Automated end-to-end setup script (run from PC)
 ├── start_alpine.sh        # Android host bootstrap script (/data/start_alpine.sh)
 ├── 99alpine               # Android init.d service hook (/system/etc/init.d/99alpine)
@@ -56,32 +57,43 @@ Complete reproducible codebase and automated provisioning suite to transform a *
 ├── wifi-connect           # Offline Wi-Fi connection manager (/usr/local/bin/)
 ├── fbpad_mtkfb.patch      # MediaTek page-flipping & [?6c suppression patch
 ├── fbpad.conf             # Default fbpad font and key configuration (~/.fbpad)
-└── fonts/                 # High-resolution Courier tinyfonts for fbpad
-    ├── courr.tf
-    ├── couri.tf
-    └── courb.tf
+├── fonts/                 # High-resolution Courier tinyfonts for fbpad
+│   ├── courr.tf
+│   ├── couri.tf
+│   └── courb.tf
+├── firmware/              # Clean rooted KitKat 4.4 firmware & scatter file
+│   └── extracted/
+│       └── MT8127_Android_scatter.txt
+└── tools/                 # Precompiled standalone SP Flash Tool v5.1916 Linux
+    └── spflash/
 ```
 
 ---
 
 ## 3. Flashing Clean Firmware via SP Flash Tool
 
-If the box ever encounters a bootloop or corrupted partition:
+The repository contains a fully self-contained SP Flash Tool v5.1916 (with bundled libraries) and the pre-extracted *Firmware Light L4 2022* ROM. Zero external package installation is required.
 
-1. **Install SP Flash Tool v5:**
+1. **Launch Flasher:**
    ```bash
-   paru -S spflashtool5-bin
+   cd ~/Projects/b760h
+   ./flash.sh
    ```
-2. **Download Firmware:**
-   Use clean, rooted KitKat 4.4 firmware (e.g. *Firmware Light L4 B760H*).
-3. **Flash:**
-   - Launch `flash_tool`.
-   - Load `MT8127_Android_scatter.txt`.
-   - Select **Download Only**.
-   - Power off the STB, connect the Male-to-Male USB cable, click **Download**, and power on the box.
-   - Wait for the green checkmark (takes ~60 seconds).
-4. **Boot Android & Enable Wi-Fi:**
-   Connect to your local Wi-Fi and verify ADB is listening on port 5555 (`192.168.8.142:5555`).
+2. **Configure Flashing in GUI:**
+   - In SP Flash Tool, click **choose** next to **Scatter-loading File** and select:
+     ```text
+     /home/darrel/Projects/b760h/firmware/extracted/MT8127_Android_scatter.txt
+     ```
+   - Ensure the dropdown is set to **Download Only** (or **Format All + Download** for a factory-clean silicon wipe).
+   - Click the green **Download** button.
+3. **Connect & Power:**
+   - With the TV box powered off, connect the USB-A to USB-A cable between the laptop and the B760H.
+   - Plug the 12V barrel power into the B760H.
+   - The flasher will detect the preloader, flash all partitions, and show a green checkmark circle (~60s).
+   - Disconnect the USB cable.
+4. **Boot Android & Connect Wi-Fi:**
+   - Power on the B760H connected to HDMI.
+   - In Android Settings, connect to your 2.4 GHz Wi-Fi network (verify IP `192.168.8.142`).
 
 ---
 
