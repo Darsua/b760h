@@ -1,0 +1,85 @@
+diff --git a/draw.c b/draw.c
+index a83609c..8fccae0 100644
+--- a/draw.c
++++ b/draw.c
+@@ -46,6 +46,7 @@ void fb_enter(void)
+ 	struct fb_cmap cmap;
+ 	int i;
+ 	ioctl(fd, FBIOPUT_VSCREENINFO, &vinfo);
++	ioctl(fd, FBIOPAN_DISPLAY, &vinfo);
+ 	if (finfo.visual == FB_VISUAL_TRUECOLOR)
+ 		return;
+ 	fb_cmap(1);
+@@ -151,3 +152,8 @@ char *fb_dev(void)
+ {
+ 	return fbdev;
+ }
++
++void fb_flush(void)
++{
++	ioctl(fd, FBIOPAN_DISPLAY, &vinfo);
++}
+diff --git a/draw.h b/draw.h
+index dbeecff..0439df8 100644
+--- a/draw.h
++++ b/draw.h
+@@ -1,5 +1,5 @@
+ /* fbpad's framebuffer interface */
+-#define FBDEV		"/dev/fb0"
++#define FBDEV		"/dev/graphics/fb0"
+ 
+ /* fb_mode() interpretation */
+ #define FBM_BPP(m)	(((m) >> 16) & 0x0f)	/* bytes per pixel (4 bits) */
+@@ -16,4 +16,5 @@ void *fb_mem(int r);
+ int fb_rows(void);
+ int fb_cols(void);
+ char *fb_dev(void);
++void fb_flush(void);
+ unsigned fb_val(int r, int g, int b);
+diff --git a/fbpad.c b/fbpad.c
+index b9093ed..d8db8d0 100644
+--- a/fbpad.c
++++ b/fbpad.c
+@@ -282,11 +282,13 @@ static void directkey(void)
+ 			return;
+ 		case 'y':
+ 			term_redraw(1);
++			fb_flush();
+ 			return;
+ 		case CTRLKEY('e'):
+ 			if (conf_read() > 0)
+ 				pad_init(conf_font(0), conf_font(1), conf_font(2));
+ 			term_redraw(1);
++			fb_flush();
+ 			return;
+ 		case CTRLKEY('l'):
+ 			locked = 1;
+@@ -365,6 +367,7 @@ static int pollterms(void)
+ 		}
+ 		peepback(term_idx[i]);
+ 	}
++	fb_flush();
+ 	return 0;
+ }
+ 
+@@ -377,6 +380,7 @@ static void mainloop(char **args)
+ 	tcsetattr(0, TCSAFLUSH, &termios);
+ 	term_load(terms[cterm()], 1);
+ 	term_redraw(1);
++	fb_flush();
+ 	if (args) {
+ 		cmdmode = 1;
+ 		t_exec(args, 0);
+diff --git a/term.c b/term.c
+index 943c2d5..437253f 100644
+--- a/term.c
++++ b/term.c
+@@ -1387,7 +1387,7 @@ static int csiseq_da(int c)
+ {
+ 	switch (c) {
+ 	case 0x00:
+-		term_sendstr("\x1b[?6c");
++		/* suppressed Primary Device Attributes to avoid stray [?6c */
+ 		break;
+ 	default:	/* ignoring cursor shape requests */
+ 		unknown("csiseq_da", c);

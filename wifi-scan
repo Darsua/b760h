@@ -1,0 +1,4 @@
+#!/bin/sh
+# Scan and list available Wi-Fi networks
+echo "Scanning Wi-Fi networks on wlan0..."
+iw dev wlan0 scan 2>/dev/null | grep -E "SSID: " | sed 's/^[ \t]*SSID: //' | grep -v '^$' | sort -u

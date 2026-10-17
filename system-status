@@ -1,0 +1,67 @@
+#!/bin/sh
+# Lean system status for ZTE B760H
+
+BOLD="\033[1m"
+DIM="\033[2m"
+RESET="\033[0m"
+CYAN="\033[1;36m"
+GREEN="\033[1;32m"
+BLUE="\033[1;34m"
+
+HOSTNAME=$(hostname 2>/dev/null)
+[ -z "$HOSTNAME" ] && HOSTNAME="b760h"
+KERNEL=$(uname -r)
+
+# Thermal
+TEMP_RAW=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
+if [ -n "$TEMP_RAW" ]; then
+    TEMP=$(awk "BEGIN {printf \"%.1f°C\", $TEMP_RAW/1000}")
+else
+    TEMP="N/A"
+fi
+
+# Uptime
+UP_SECS=$(cut -d. -f1 /proc/uptime)
+DAYS=$((UP_SECS / 86400))
+HOURS=$(( (UP_SECS % 86400) / 3600 ))
+MINS=$(( (UP_SECS % 3600) / 60 ))
+if [ $DAYS -gt 0 ]; then
+    UPTIME="${DAYS}d ${HOURS}h ${MINS}m"
+elif [ $HOURS -gt 0 ]; then
+    UPTIME="${HOURS}h ${MINS}m"
+else
+    UPTIME="${MINS}m"
+fi
+
+# Memory & Swap (MB)
+read -r MEM_TOTAL MEM_FREE MEM_BUFF MEM_CACHE << EOM
+$(awk '/MemTotal:/ {t=$2} /MemFree:/ {f=$2} /Buffers:/ {b=$2} /^Cached:/ {c=$2} END {print t, f, b, c}' /proc/meminfo)
+EOM
+MEM_USED=$(( (MEM_TOTAL - MEM_FREE - MEM_BUFF - MEM_CACHE) / 1024 ))
+MEM_TOTAL_MB=$(( MEM_TOTAL / 1024 ))
+MEM_PCT=$(( (MEM_USED * 100) / MEM_TOTAL_MB ))
+
+read -r SWAP_TOTAL SWAP_FREE << EOS
+$(awk '/SwapTotal:/ {t=$2} /SwapFree:/ {f=$2} END {print t, f}' /proc/meminfo)
+EOS
+SWAP_USED=$(( (SWAP_TOTAL - SWAP_FREE) / 1024 ))
+SWAP_TOTAL_MB=$(( SWAP_TOTAL / 1024 ))
+
+# Storage (/cache)
+DISK_USED=$(df -m / 2>/dev/null | awk 'NR==2 {print $3}')
+DISK_TOTAL=$(df -m / 2>/dev/null | awk 'NR==2 {print $2}')
+DISK_PCT=$(df -m / 2>/dev/null | awk 'NR==2 {print $5}')
+DISK_INFO="${DISK_USED}M / ${DISK_TOTAL}M (${DISK_PCT})"
+
+# IP Address
+IP_ADDR=$(ip -4 addr show wlan0 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1)
+[ -z "$IP_ADDR" ] && IP_ADDR="192.168.8.142"
+
+printf "\n"
+printf "  ${BOLD}%s${RESET} ${DIM}· Alpine Linux v3.20 (Linux %s)${RESET}\n" "$HOSTNAME" "$KERNEL"
+printf "  ${DIM}------------------------------------------------------------${RESET}\n"
+printf "  ${CYAN}·${RESET} ${BOLD}%-10s${RESET} %-18s  ${CYAN}·${RESET} ${BOLD}%-10s${RESET} %s\n" "Uptime:" "$UPTIME" "Temp:" "$TEMP"
+printf "  ${GREEN}·${RESET} ${BOLD}%-10s${RESET} %-18s  ${GREEN}·${RESET} ${BOLD}%-10s${RESET} %s\n" "Memory:" "${MEM_USED}M / ${MEM_TOTAL_MB}M (${MEM_PCT}%)" "Swap:" "${SWAP_USED}M / ${SWAP_TOTAL_MB}M"
+printf "  ${BLUE}·${RESET} ${BOLD}%-10s${RESET} %-18s  ${BLUE}·${RESET} ${BOLD}%-10s${RESET} %s\n" "Disk (/):" "$DISK_INFO" "IP (wlan):" "$IP_ADDR"
+printf "  ${DIM}------------------------------------------------------------${RESET}\n"
+printf "\n"

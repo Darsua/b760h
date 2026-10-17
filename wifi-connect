@@ -1,0 +1,65 @@
+#!/bin/sh
+# Simple Wi-Fi connector for ZTE B760H
+
+if [ -z "$1" ]; then
+    echo "Usage: sudo wifi-connect <SSID> [PASSWORD]"
+    exit 1
+fi
+
+SSID="$1"
+PASS="$2"
+CONF="/data/misc/wifi/wpa_supplicant.conf"
+
+if [ ! -f "$CONF" ]; then
+    mkdir -p /data
+    mount /dev/block/mmcblk0p7 /data 2>/dev/null
+fi
+
+if [ ! -f "$CONF" ]; then
+    echo "Error: cannot access $CONF"
+    exit 1
+fi
+
+echo "Configuring network '$SSID'..."
+
+if [ -n "$PASS" ]; then
+    cat << EON >> "$CONF"
+
+network={
+	ssid="$SSID"
+	psk="$PASS"
+	key_mgmt=WPA-PSK
+	priority=10
+}
+EON
+else
+    cat << EON >> "$CONF"
+
+network={
+	ssid="$SSID"
+	key_mgmt=NONE
+	priority=10
+}
+EON
+fi
+
+echo "Reloading Wi-Fi service..."
+pkill -HUP wpa_supplicant 2>/dev/null || true
+
+echo "Associating and acquiring IP address..."
+for i in 1 2 3 4 5; do
+    sleep 2
+    IP=$(ip -4 addr show wlan0 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1)
+    if [ -n "$IP" ]; then
+        echo "Successfully connected! wlan0 IP: $IP"
+        exit 0
+    fi
+done
+
+udhcpc -i wlan0 -n -q 2>/dev/null
+IP=$(ip -4 addr show wlan0 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1)
+if [ -n "$IP" ]; then
+    echo "Successfully connected! wlan0 IP: $IP"
+else
+    echo "Association initiated. Check 'ip addr show wlan0' or /usr/local/bin/system-status."
+fi

@@ -1,0 +1,2 @@
+#!/system/bin/sh
+(/data/start_alpine.sh >/data/alpine_boot.log 2>&1) &
