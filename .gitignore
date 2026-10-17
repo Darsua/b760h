@@ -1,0 +1,5 @@
+firmware/*.rar
+firmware/extracted/
+tools/*.rar
+tools/spflash/
+*.log
