@@ -250,9 +250,6 @@ adb -s "$ADB_TARGET" shell "su -c 'chmod 755 /data/start_alpine.sh'"
 adb -s "$ADB_TARGET" shell "su -c '
     mount -o remount,rw /system
     mkdir -p /system/etc/init.d
-    if [ ! -f /system/bin/bootanimation.orig ]; then
-        cp /system/bin/bootanimation /system/bin/bootanimation.orig
-    fi
     echo \"#!/system/bin/sh\nexit 0\" > /system/bin/bootanimation
     chmod 755 /system/bin/bootanimation
 '"
