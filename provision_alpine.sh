@@ -89,17 +89,32 @@ push_as_root "$SCRIPT_DIR/system-status" "/cache/alpine/usr/local/bin/system-sta
 push_as_root "$SCRIPT_DIR/wifi-scan" "/cache/alpine/usr/local/bin/wifi-scan"
 push_as_root "$SCRIPT_DIR/wifi-connect" "/cache/alpine/usr/local/bin/wifi-connect"
 
+echo "Syncing system time from host..."
+CURRENT_EPOCH=$(date +%s)
+adb -s "$ADB_TARGET" shell "su -c '/system/xbin/busybox date -s \"@$CURRENT_EPOCH\" 2>/dev/null || date -s \"$(date +%Y%m%d.%H%M%S)\" 2>/dev/null || true'"
+
 # Generate internal bootstrap script
-cat << 'BOOTSTRAP_EOF' > /tmp/bootstrap_internal.sh
+cat << BOOTSTRAP_EOF > /tmp/bootstrap_internal.sh
 #!/bin/sh
 set -e
 export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Sync date inside chroot
+date -s "@$CURRENT_EPOCH" 2>/dev/null || true
+
+echo "Configuring repositories..."
+# Use http initially in case CA certificates are missing or clock is off
+sed -i 's|https://|http://|g' /etc/apk/repositories 2>/dev/null || true
 
 echo "Updating apk repositories..."
 apk update
 
 echo "Installing Alpine packages..."
-apk add --no-cache openssh sudo fish tmux htop git python3 py3-pip py3-evdev iw build-base linux-headers
+apk add --no-cache ca-certificates openssh sudo fish tmux htop git python3 py3-pip py3-evdev iw build-base linux-headers
+# Switch back to https once ca-certificates is installed
+sed -i 's|http://|https://|g' /etc/apk/repositories 2>/dev/null || true
+BOOTSTRAP_EOF
+cat << 'BOOTSTRAP_EOF' >> /tmp/bootstrap_internal.sh
 
 echo "Creating user darrel and groups..."
 addgroup -g 1004 aid_input 2>/dev/null || true

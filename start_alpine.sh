@@ -37,13 +37,15 @@ done
 # 6. Start OpenSSH daemon
 /system/xbin/busybox chroot /cache/alpine /usr/sbin/sshd 2>/dev/null
 
-# 7. Stop Android Java userland (Zygote, Launcher, GMS) to free 250MB+ RAM.
-# Keeping SurfaceFlinger alive ensures the MediaTek hardware display
-# controller remains stable with 0 M4U faults.
-# Disarm Android 5-minute boot failure watchdog before stopping zygote
+# 7. Disarm Android 5-minute boot failure watchdog
 /system/bin/setprop sys.boot_completed 1
 /system/bin/setprop dev.bootcomplete 1
-/system/bin/setprop ctl.stop zygote
+
+# Only stop Android Java userland (Zygote) if Alpine SSH is present and network is up
+if [ -x /cache/alpine/usr/sbin/sshd ] && { [ -n "$IP_WLAN" ] || [ -n "$IP_ETH" ]; }; then
+    /system/bin/setprop ctl.stop bootanim
+    /system/bin/setprop ctl.stop zygote
+fi
 
 # 8. Start HDMI terminal daemon (runs fbpad attached to tmux 'hdmi' session)
 (
