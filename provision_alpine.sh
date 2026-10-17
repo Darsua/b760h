@@ -24,6 +24,8 @@ adb -s "$ADB_TARGET" shell "su -c '
     umount -l /cache/alpine/data 2>/dev/null || true
     umount -l /cache 2>/dev/null || true
     make_ext4fs /dev/block/mmcblk0p6
+    echo "Purging old application caches and user data leftovers..."
+    rm -rf /data/app/* /data/dalvik-cache/* /data/lost+found/* /data/*.log 2>/dev/null || true
     mkdir -p /cache
     mount -o rw,suid /dev/block/mmcblk0p6 /cache
     mkdir -p /cache/alpine
