@@ -247,7 +247,15 @@ echo "=== [7/7] Installing Android host boot scripts & disarming watchdog ==="
 push_as_root "$SCRIPT_DIR/start_alpine.sh" "/data/start_alpine.sh"
 adb -s "$ADB_TARGET" shell "su -c 'chmod 755 /data/start_alpine.sh'"
 
-adb -s "$ADB_TARGET" shell "su -c 'mount -o remount,rw /system && mkdir -p /system/etc/init.d'"
+adb -s "$ADB_TARGET" shell "su -c '
+    mount -o remount,rw /system
+    mkdir -p /system/etc/init.d
+    if [ ! -f /system/bin/bootanimation.orig ]; then
+        cp /system/bin/bootanimation /system/bin/bootanimation.orig
+    fi
+    echo \"#!/system/bin/sh\nexit 0\" > /system/bin/bootanimation
+    chmod 755 /system/bin/bootanimation
+'"
 push_as_root "$SCRIPT_DIR/99alpine" "/system/etc/init.d/99alpine"
 adb -s "$ADB_TARGET" shell "su -c 'chmod 755 /system/etc/init.d/99alpine && mount -o remount,ro /system'"
 
