@@ -167,6 +167,30 @@ if [ -f /tmp/fbpad.conf ]; then
     rm -f /tmp/fbpad.conf
 fi
 
+# Silence default motd and configure local hosts
+truncate -s 0 /etc/motd
+echo -e "127.0.0.1\tb760h localhost\n::1\t\tb760h localhost" > /etc/hosts
+
+# Configure tmux
+echo 'set -g default-terminal "linux"' > /home/darrel/.tmux.conf
+echo 'set -g status off' >> /home/darrel/.tmux.conf
+chown darrel:darrel /home/darrel/.tmux.conf
+
+# Setup sshd wrapper to maintain kernel UTS hostname
+if [ ! -f /usr/sbin/sshd.real ]; then
+    cp /usr/sbin/sshd /usr/sbin/sshd.real
+fi
+cat << 'SSHD_WRAPPER_EOF' > /tmp/sshd.wrapper
+#!/bin/sh
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin:$PATH
+if [ -f /etc/hostname ]; then
+    /bin/hostname "$(cat /etc/hostname | tr -d '\r\n')" 2>/dev/null
+fi
+exec /usr/sbin/sshd.real "$@"
+SSHD_WRAPPER_EOF
+mv /tmp/sshd.wrapper /usr/sbin/sshd
+chmod 755 /usr/sbin/sshd
+
 chmod 755 \
     /usr/local/bin/hdmi-kbd-bridge \
     /usr/local/bin/hdmi-terminal \
