@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_IP="${1:-192.168.8.142}"
 ADB_TARGET="${TARGET_IP}:5555"
 
-echo "=== [1/9] Connecting to B760H via ADB ($ADB_TARGET) ==="
+echo "=== [1/7] Connecting to B760H via ADB ($ADB_TARGET) ==="
 adb connect "$ADB_TARGET" || true
 adb -s "$ADB_TARGET" wait-for-device
 
@@ -24,7 +24,7 @@ push_as_root() {
     adb -s "$ADB_TARGET" shell "su -c 'mkdir -p \"\$(dirname \"$dst\")\" && cp \"/data/local/tmp/$base\" \"$dst\" && rm -f \"/data/local/tmp/$base\"'"
 }
 
-echo "=== [2/9] Preparing /cache and purging old application leftovers ==="
+echo "=== [2/7] Preparing /cache and purging old application leftovers ==="
 adb -s "$ADB_TARGET" shell "su -c '
     /system/xbin/busybox mount -o remount,rw,suid /cache
     rm -rf /cache/alpine /cache/alpine.tar.gz
@@ -32,14 +32,14 @@ adb -s "$ADB_TARGET" shell "su -c '
     rm -rf /data/app/* /data/dalvik-cache/* /data/lost+found/* /data/*.log 2>/dev/null || true
 '"
 
-echo "=== [3/9] Pushing and unpacking Alpine Linux minirootfs (armhf) ==="
+echo "=== [3/7] Pushing and unpacking Alpine Linux minirootfs (armhf) ==="
 ALPINE_TAR="/tmp/alpine-minirootfs-3.20.10-armhf.tar.gz"
 if [ ! -f "$ALPINE_TAR" ]; then
     echo "Downloading Alpine minirootfs..."
     curl -sSL -o "$ALPINE_TAR" "https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/armhf/alpine-minirootfs-3.20.10-armhf.tar.gz"
 fi
 
-echo "Staging minirootfs..."
+echo "Staging minirootfs to device..."
 push_as_root "$ALPINE_TAR" "/cache/alpine.tar.gz"
 
 echo "Extracting minirootfs..."
@@ -51,7 +51,7 @@ adb -s "$ADB_TARGET" shell "su -c '
     echo \"b760h\" > /cache/alpine/etc/hostname
 '"
 
-echo "=== [4/9] Mounting pseudo-filesystems into Alpine chroot ==="
+echo "=== [4/7] Mounting pseudo-filesystems into Alpine chroot ==="
 adb -s "$ADB_TARGET" shell "su -c '
     mount -o bind /dev /cache/alpine/dev
     mount -t proc proc /cache/alpine/proc
@@ -61,88 +61,110 @@ adb -s "$ADB_TARGET" shell "su -c '
     mount -o bind /data /cache/alpine/data
 '"
 
-CHROOT="adb -s $ADB_TARGET shell su -c /system/xbin/busybox\ chroot\ /cache/alpine"
-
-echo "=== [5/9] Installing base packages via apk ==="
-$CHROOT /bin/sh -c "export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && \
-    apk update && \
-    apk add --no-cache openssh sudo fish tmux htop git python3 py3-pip py3-evdev iw build-base linux-headers"
-
-echo "=== [6/9] Configuring user 'darrel', sudoers, and SSH keys ==="
-$CHROOT /bin/sh -c "export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && \
-    addgroup -g 1004 aid_input 2>/dev/null || true && \
-    id darrel 2>/dev/null || adduser -s /usr/bin/fish -D darrel && \
-    addgroup darrel wheel && \
-    addgroup darrel aid_input && \
-    echo '%wheel ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/wheel && \
-    mkdir -p /home/darrel/.ssh && \
-    chmod 700 /home/darrel/.ssh && \
-    chown -R darrel:darrel /home/darrel"
-
+echo "=== [5/7] Staging configuration files and utilities ==="
+# User SSH key
 if [ -f "$HOME/.ssh/id_ed25519.pub" ]; then
-    push_as_root "$HOME/.ssh/id_ed25519.pub" "/cache/alpine/home/darrel/.ssh/authorized_keys"
-    $CHROOT /bin/sh -c "chmod 600 /home/darrel/.ssh/authorized_keys && chown -R darrel:darrel /home/darrel/.ssh"
+    push_as_root "$HOME/.ssh/id_ed25519.pub" "/cache/alpine/tmp/authorized_keys"
 fi
 
-$CHROOT /bin/sh -c "ssh-keygen -A"
-
-echo "=== [7/9] Compiling patched fbpad for MediaTek hardware page-flipping ==="
-$CHROOT /bin/sh -c "export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && \
-    rm -rf /tmp/fbpad && \
-    git clone --depth 1 https://github.com/aligrudi/fbpad /tmp/fbpad"
-
-push_as_root "$SCRIPT_DIR/fbpad_mtkfb.patch" "/cache/alpine/tmp/fbpad/fbpad_mtkfb.patch"
-
-$CHROOT /bin/sh -c "export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && \
-    cd /tmp/fbpad && \
-    patch -p1 < fbpad_mtkfb.patch && \
-    make clean && make && \
-    strip fbpad && \
-    cp fbpad /usr/local/bin/fbpad && \
-    chmod 755 /usr/local/bin/fbpad && \
-    rm -rf /tmp/fbpad"
-
-echo "Installing fonts and fbpad config..."
-$CHROOT /bin/sh -c "mkdir -p /usr/share/fonts/fbpad"
+# Fonts & Configs
 push_as_root "$SCRIPT_DIR/fonts/courr.tf" "/cache/alpine/usr/share/fonts/fbpad/courr.tf"
 push_as_root "$SCRIPT_DIR/fonts/couri.tf" "/cache/alpine/usr/share/fonts/fbpad/couri.tf"
 push_as_root "$SCRIPT_DIR/fonts/courb.tf" "/cache/alpine/usr/share/fonts/fbpad/courb.tf"
-push_as_root "$SCRIPT_DIR/fbpad.conf" "/cache/alpine/home/darrel/.fbpad"
-$CHROOT /bin/sh -c "cp /home/darrel/.fbpad /root/.fbpad && chown darrel:darrel /home/darrel/.fbpad"
+push_as_root "$SCRIPT_DIR/fbpad.conf" "/cache/alpine/tmp/fbpad.conf"
+push_as_root "$SCRIPT_DIR/fbpad_mtkfb.patch" "/cache/alpine/tmp/fbpad_mtkfb.patch"
 
-echo "=== [8/9] Deploying custom utilities and scripts ==="
+# Utilities
 push_as_root "$SCRIPT_DIR/hdmi-kbd-bridge.py" "/cache/alpine/usr/local/bin/hdmi-kbd-bridge"
 push_as_root "$SCRIPT_DIR/hdmi-terminal" "/cache/alpine/usr/local/bin/hdmi-terminal"
 push_as_root "$SCRIPT_DIR/system-status" "/cache/alpine/usr/local/bin/system-status"
 push_as_root "$SCRIPT_DIR/wifi-scan" "/cache/alpine/usr/local/bin/wifi-scan"
 push_as_root "$SCRIPT_DIR/wifi-connect" "/cache/alpine/usr/local/bin/wifi-connect"
 
-$CHROOT /bin/sh -c "chmod 755 \
+# Generate internal bootstrap script
+cat << 'BOOTSTRAP_EOF' > /tmp/bootstrap_internal.sh
+#!/bin/sh
+set -e
+export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+echo "Updating apk repositories..."
+apk update
+
+echo "Installing Alpine packages..."
+apk add --no-cache openssh sudo fish tmux htop git python3 py3-pip py3-evdev iw build-base linux-headers
+
+echo "Creating user darrel and groups..."
+addgroup -g 1004 aid_input 2>/dev/null || true
+id darrel 2>/dev/null || adduser -s /usr/bin/fish -D darrel
+addgroup darrel wheel
+addgroup darrel aid_input
+echo '%wheel ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/wheel
+
+if [ -f /tmp/authorized_keys ]; then
+    mkdir -p /home/darrel/.ssh
+    cp /tmp/authorized_keys /home/darrel/.ssh/authorized_keys
+    chmod 700 /home/darrel/.ssh
+    chmod 600 /home/darrel/.ssh/authorized_keys
+    chown -R darrel:darrel /home/darrel/.ssh
+    rm -f /tmp/authorized_keys
+fi
+
+echo "Generating SSH host keys..."
+ssh-keygen -A
+
+echo "Compiling patched fbpad..."
+rm -rf /tmp/fbpad
+git clone --depth 1 https://github.com/aligrudi/fbpad /tmp/fbpad
+cd /tmp/fbpad
+patch -p1 < /tmp/fbpad_mtkfb.patch
+make clean && make
+strip fbpad
+cp fbpad /usr/local/bin/fbpad
+chmod 755 /usr/local/bin/fbpad
+rm -rf /tmp/fbpad /tmp/fbpad_mtkfb.patch
+
+if [ -f /tmp/fbpad.conf ]; then
+    cp /tmp/fbpad.conf /home/darrel/.fbpad
+    cp /tmp/fbpad.conf /root/.fbpad
+    chown darrel:darrel /home/darrel/.fbpad
+    rm -f /tmp/fbpad.conf
+fi
+
+chmod 755 \
     /usr/local/bin/hdmi-kbd-bridge \
     /usr/local/bin/hdmi-terminal \
     /usr/local/bin/system-status \
     /usr/local/bin/wifi-scan \
-    /usr/local/bin/wifi-connect"
+    /usr/local/bin/wifi-connect
 
-echo "Configuring fish shell greeting..."
-$CHROOT /bin/sh -c "mkdir -p /etc/fish/conf.d && cat << 'EOF' > /etc/fish/conf.d/status.fish
+mkdir -p /etc/fish/conf.d
+cat << 'FISH_EOF' > /etc/fish/conf.d/status.fish
 if status is-interactive
     function fish_greeting
         /usr/local/bin/system-status
     end
 end
-EOF"
+FISH_EOF
 
-echo "=== [9/9] Installing Android host boot scripts ==="
+echo "Pruning temporary build packages..."
+apk del build-base linux-headers 2>/dev/null || true
+
+echo "Alpine internal bootstrap complete!"
+BOOTSTRAP_EOF
+
+push_as_root "/tmp/bootstrap_internal.sh" "/cache/alpine/tmp/bootstrap.sh"
+rm -f /tmp/bootstrap_internal.sh
+
+echo "=== [6/7] Running internal bootstrap inside Alpine chroot ==="
+adb -s "$ADB_TARGET" shell "su -c '/system/xbin/busybox chroot /cache/alpine /bin/sh /tmp/bootstrap.sh && rm -f /cache/alpine/tmp/bootstrap.sh'"
+
+echo "=== [7/7] Installing Android host boot scripts & disarming watchdog ==="
 push_as_root "$SCRIPT_DIR/start_alpine.sh" "/data/start_alpine.sh"
 adb -s "$ADB_TARGET" shell "su -c 'chmod 755 /data/start_alpine.sh'"
 
 adb -s "$ADB_TARGET" shell "su -c 'mount -o remount,rw /system && mkdir -p /system/etc/init.d'"
 push_as_root "$SCRIPT_DIR/99alpine" "/system/etc/init.d/99alpine"
 adb -s "$ADB_TARGET" shell "su -c 'chmod 755 /system/etc/init.d/99alpine && mount -o remount,ro /system'"
-
-echo "Pruning temporary build dependencies in Alpine chroot..."
-$CHROOT /bin/sh -c "apk del build-base linux-headers 2>/dev/null || true"
 
 echo "=========================================================================="
 echo " Provisioning Complete! Testing boot sequence in 3 seconds..."
