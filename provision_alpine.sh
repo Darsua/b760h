@@ -110,7 +110,7 @@ echo "Updating apk repositories..."
 apk update
 
 echo "Installing Alpine packages..."
-apk add --no-cache ca-certificates openssh sudo doas fish tmux htop git python3 py3-pip py3-evdev iw curl nano bash tzdata wpa_supplicant rsync jq file ncdu build-base linux-headers
+apk add --no-cache ca-certificates openssh sudo doas fish tmux htop git python3 py3-pip py3-evdev iw curl nano bash tzdata wpa_supplicant rsync jq file ncdu links mandoc man-pages fish-doc build-base linux-headers
 # Switch back to https once ca-certificates is installed
 sed -i 's|http://|https://|g' /etc/apk/repositories 2>/dev/null || true
 
