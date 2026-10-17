@@ -15,6 +15,9 @@ adb -s "$ADB_TARGET" wait-for-device
 echo "Verifying root access on device..."
 adb -s "$ADB_TARGET" shell "su -c 'id'"
 
+# Prevent device from sleeping / turning HDMI off
+adb -s "$ADB_TARGET" shell "su -c 'svc power stayon true 2>/dev/null || true; mkdir -p /data/local/tmp; chmod 777 /data/local/tmp'"
+
 push_as_root() {
     local src="$1"
     local dst="$2"
@@ -27,6 +30,11 @@ push_as_root() {
 echo "=== [2/7] Preparing /cache and purging old application leftovers ==="
 adb -s "$ADB_TARGET" shell "su -c '
     /system/xbin/busybox mount -o remount,rw,suid /cache
+    /system/xbin/busybox umount -l /cache/alpine/dev/pts 2>/dev/null || true
+    /system/xbin/busybox umount -l /cache/alpine/dev 2>/dev/null || true
+    /system/xbin/busybox umount -l /cache/alpine/proc 2>/dev/null || true
+    /system/xbin/busybox umount -l /cache/alpine/sys 2>/dev/null || true
+    /system/xbin/busybox umount -l /cache/alpine/data 2>/dev/null || true
     rm -rf /cache/alpine /cache/alpine.tar.gz
     mkdir -p /cache/alpine
     rm -rf /data/app/* /data/dalvik-cache/* /data/lost+found/* /data/*.log 2>/dev/null || true
