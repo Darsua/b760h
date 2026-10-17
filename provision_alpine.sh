@@ -122,6 +122,8 @@ id darrel 2>/dev/null || adduser -s /usr/bin/fish -D darrel
 addgroup darrel wheel
 addgroup darrel aid_input
 echo '%wheel ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/wheel
+chmod 440 /etc/sudoers.d/wheel
+passwd -u darrel 2>/dev/null || sed -i "s/^darrel:!:/darrel:*:/" /etc/shadow
 
 if [ -f /tmp/authorized_keys ]; then
     mkdir -p /home/darrel/.ssh
