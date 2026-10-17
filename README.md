@@ -109,10 +109,10 @@ cd ~/Projects/b760h
 
 This automated script performs:
 1. Formatting `/cache` as ext4 (`make_ext4fs /dev/block/mmcblk0p6`).
-2. Bootstrapping Alpine Linux 3.20 `armhf` minirootfs.
-3. Installing dependencies (`openssh`, `fish`, `tmux`, `sudo`, `py3-evdev`, `iw`).
-4. Creating user `darrel`, adding to `wheel` and `aid_input` (GID 1004).
-5. Installing Ed25519 SSH keys.
+2. Bootstrapping Alpine Linux 3.20 `armhf` minirootfs with host time epoch synchronization.
+3. Installing core dependencies (`openssh`, `fish`, `tmux`, `sudo`, `doas`, `curl`, `rsync`, `jq`, `file`, `ncdu`, `py3-evdev`, `iw`, `tzdata`, `wpa_supplicant`).
+4. Creating user `darrel`, adding to `wheel`, `aid_input` (1004), `aid_inet` (3003), and `aid_net_raw` (3004).
+5. Installing Ed25519 SSH keys, `.tmux.conf` (`status off`), clean `/etc/motd`, and `sshd` UTS hostname wrapper.
 6. Compiling patched `fbpad` with hardware page-flipping.
 7. Installing tinyfonts and console supervisor daemons.
 8. Installing watchdog disarm hooks and rebooting into live Alpine.
@@ -123,10 +123,13 @@ This automated script performs:
 
 ### A. Android Boot Failure Watchdog (Root Cause of TWRP Drop)
 * **Problem:** Android KitKat's `init` starts a 5-minute boot failure timer. If `sys.boot_completed` is never set to `1`, the bootloader assumes a fatal bootloop, writes `boot-recovery` to the `misc` partition, and reboots into TWRP.
-* **Fix:** In `start_alpine.sh`, always set `sys.boot_completed` before terminating `zygote`:
+* **Fix:** In `start_alpine.sh`, always disarm the watchdog and dismiss boot animation before terminating `zygote`:
   ```sh
   /system/bin/setprop sys.boot_completed 1
   /system/bin/setprop dev.bootcomplete 1
+  /system/bin/setprop service.bootanim.exit 1
+  /system/bin/setprop ctl.stop bootanim
+  killall bootanimation 2>/dev/null || true
   /system/bin/setprop ctl.stop zygote
   ```
 
@@ -138,7 +141,11 @@ This automated script performs:
 * **Problem:** Never call Android's `stop` command (which kills `surfaceflinger`). The MediaTek hardware display controller (`DISP_RDMA1`) triggers IOMMU/M4U translation faults when its buffers are deallocated, causing kernel panics.
 * **Fix:** Leave `surfaceflinger` running (~15MB RAM) and only stop `zygote` (`/system/bin/setprop ctl.stop zygote`).
 
-### D. Primary Device Attributes (`[?6c`) Suppression
+### D. Android Paranoid Network Restrictions (`CONFIG_ANDROID_PARANOID_NETWORK`)
+* **Problem:** The Android 3.4 kernel blocks unprivileged users from opening AF_INET sockets or DNS queries unless the process belongs to `AID_INET` (GID 3003) and `AID_NET_RAW` (GID 3004).
+* **Fix:** Add `aid_inet` (3003) and `aid_net_raw` (3004) to `/etc/group` and include `darrel` in both groups.
+
+### E. Primary Device Attributes (`[?6c`) Suppression
 * **Problem:** Modern shells (`fish`) query the terminal with `CSI c`. Standard `fbpad` responds with `\x1b[?6c`, which leaks onto the prompt as stray `[?6c` characters.
 * **Fix:** `fbpad_mtkfb.patch` suppresses the response in `term.c:csiseq_da()`.
 
