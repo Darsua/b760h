@@ -110,7 +110,7 @@ echo "Updating apk repositories..."
 apk update
 
 echo "Installing Alpine packages..."
-apk add --no-cache ca-certificates openssh sudo fish tmux htop git python3 py3-pip py3-evdev iw curl nano bash tzdata wpa_supplicant build-base linux-headers
+apk add --no-cache ca-certificates openssh sudo doas fish tmux htop git python3 py3-pip py3-evdev iw curl nano bash tzdata wpa_supplicant build-base linux-headers
 # Switch back to https once ca-certificates is installed
 sed -i 's|http://|https://|g' /etc/apk/repositories 2>/dev/null || true
 
@@ -119,6 +119,8 @@ cp /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
 echo 'Asia/Jakarta' > /etc/timezone
 echo 'b760h' > /etc/hostname
 hostname b760h 2>/dev/null || true
+echo 'permit nopass :wheel' > /etc/doas.conf
+chmod 400 /etc/doas.conf
 BOOTSTRAP_EOF
 cat << 'BOOTSTRAP_EOF' >> /tmp/bootstrap_internal.sh
 
