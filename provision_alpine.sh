@@ -197,7 +197,8 @@ chmod 755 \
     /usr/local/bin/hdmi-terminal \
     /usr/local/bin/system-status \
     /usr/local/bin/wifi-scan \
-    /usr/local/bin/wifi-connect
+    /usr/local/bin/wifi-connect \
+    /usr/local/bin/adguard-service 2>/dev/null || true
 
 cat << 'REBOOT_EOF' > /usr/local/bin/reboot
 #!/bin/sh

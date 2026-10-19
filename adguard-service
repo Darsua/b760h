@@ -1,0 +1,53 @@
+#!/bin/sh
+PIDFILE="/var/run/adguardhome.pid"
+BIN="/opt/AdGuardHome/AdGuardHome"
+CONF="/opt/AdGuardHome/AdGuardHome.yaml"
+WORKDIR="/opt/AdGuardHome/data"
+LOGFILE="/var/log/adguardhome.log"
+
+case "$1" in
+    start)
+        if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+            echo "AdGuard Home is already running (PID $(cat "$PIDFILE"))"
+            exit 0
+        fi
+        echo "Starting AdGuard Home..."
+        mkdir -p "$WORKDIR" /var/log
+        nohup "$BIN" -c "$CONF" -w "$WORKDIR" --pidfile "$PIDFILE" -l "$LOGFILE" >/dev/null 2>&1 &
+        sleep 1
+        if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+            echo "AdGuard Home started successfully (PID $(cat "$PIDFILE"))"
+        else
+            echo "Failed to start AdGuard Home. Check $LOGFILE"
+            exit 1
+        fi
+        ;;
+    stop)
+        if [ -f "$PIDFILE" ]; then
+            PID=$(cat "$PIDFILE")
+            echo "Stopping AdGuard Home (PID $PID)..."
+            kill "$PID" 2>/dev/null || true
+            rm -f "$PIDFILE"
+            echo "AdGuard Home stopped."
+        else
+            echo "AdGuard Home is not running."
+        fi
+        ;;
+    restart)
+        "$0" stop
+        sleep 1
+        "$0" start
+        ;;
+    status)
+        if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+            echo "AdGuard Home is running (PID $(cat "$PIDFILE"))"
+        else
+            echo "AdGuard Home is stopped"
+            exit 1
+        fi
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac
