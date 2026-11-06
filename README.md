@@ -57,6 +57,9 @@ Complete reproducible codebase and automated provisioning suite to transform a *
 ├── wifi-connect           # Offline Wi-Fi connection manager (/usr/local/bin/)
 ├── fbpad_mtkfb.patch      # MediaTek page-flipping & [?6c suppression patch
 ├── fbpad.conf             # Default fbpad font and key configuration (~/.fbpad)
+├── configs/               # User shell & environment configurations
+│   ├── config.fish        # Fish configuration (Starship, Zoxide, FZF, Eza, Bat)
+│   └── starship.toml      # Cross-machine standardized prompt configuration
 ├── fonts/                 # High-resolution Courier tinyfonts for fbpad
 │   ├── courr.tf
 │   ├── couri.tf
@@ -110,9 +113,9 @@ cd ~/Projects/b760h
 This automated script performs:
 1. Formatting `/cache` as ext4 (`make_ext4fs /dev/block/mmcblk0p6`).
 2. Bootstrapping Alpine Linux 3.20 `armhf` minirootfs with host time epoch synchronization.
-3. Installing core dependencies (`openssh`, `fish`, `tmux`, `sudo`, `doas`, `curl`, `rsync`, `jq`, `file`, `ncdu`, `py3-evdev`, `iw`, `tzdata`, `wpa_supplicant`).
+3. Installing core dependencies (`openssh`, `fish`, `tmux`, `sudo`, `doas`, `starship`, `zoxide`, `fzf`, `eza`, `bat`, `vim`, `curl`, `rsync`, `jq`, `file`, `ncdu`, `py3-evdev`, `iw`, `tzdata`, `wpa_supplicant`).
 4. Creating user `darrel`, adding to `wheel`, `aid_input` (1004), `aid_inet` (3003), and `aid_net_raw` (3004).
-5. Installing Ed25519 SSH keys, `.tmux.conf` (`status off`), clean `/etc/motd`, and `sshd` UTS hostname wrapper.
+5. Installing Ed25519 SSH keys, `.tmux.conf` (`status off`), standardized user dotfiles (`starship.toml`, `config.fish`), clean `/etc/motd`, and `sshd` UTS hostname wrapper.
 6. Compiling patched `fbpad` with hardware page-flipping.
 7. Installing tinyfonts and console supervisor daemons.
 8. Installing watchdog disarm hooks and rebooting into live Alpine.

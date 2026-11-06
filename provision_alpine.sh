@@ -81,6 +81,12 @@ push_as_root "$SCRIPT_DIR/fonts/couri.tf" "/cache/alpine/usr/share/fonts/fbpad/c
 push_as_root "$SCRIPT_DIR/fonts/courb.tf" "/cache/alpine/usr/share/fonts/fbpad/courb.tf"
 push_as_root "$SCRIPT_DIR/fbpad.conf" "/cache/alpine/tmp/fbpad.conf"
 push_as_root "$SCRIPT_DIR/fbpad_mtkfb.patch" "/cache/alpine/tmp/fbpad_mtkfb.patch"
+if [ -f "$SCRIPT_DIR/configs/config.fish" ]; then
+    push_as_root "$SCRIPT_DIR/configs/config.fish" "/cache/alpine/tmp/config.fish"
+fi
+if [ -f "$SCRIPT_DIR/configs/starship.toml" ]; then
+    push_as_root "$SCRIPT_DIR/configs/starship.toml" "/cache/alpine/tmp/starship.toml"
+fi
 
 # Utilities
 push_as_root "$SCRIPT_DIR/hdmi-kbd-bridge.py" "/cache/alpine/usr/local/bin/hdmi-kbd-bridge"
@@ -110,7 +116,7 @@ echo "Updating apk repositories..."
 apk update
 
 echo "Installing Alpine packages..."
-apk add --no-cache ca-certificates openssh sudo doas fish tmux htop git python3 py3-pip py3-evdev iw curl nano bash tzdata wpa_supplicant rsync jq file ncdu links mandoc man-pages fish-doc build-base linux-headers
+apk add --no-cache ca-certificates openssh sudo doas fish tmux htop git python3 py3-pip py3-evdev iw curl nano bash tzdata wpa_supplicant rsync jq file ncdu links mandoc man-pages fish-doc build-base linux-headers starship zoxide fzf eza bat vim
 # Switch back to https once ca-certificates is installed
 sed -i 's|http://|https://|g' /etc/apk/repositories 2>/dev/null || true
 
@@ -176,6 +182,18 @@ echo 'set -g default-terminal "linux"' > /home/darrel/.tmux.conf
 echo 'set -as terminal-features ",*:UTF-8"' >> /home/darrel/.tmux.conf
 echo 'set -g status off' >> /home/darrel/.tmux.conf
 chown darrel:darrel /home/darrel/.tmux.conf
+
+# Configure user shell & prompt
+mkdir -p /home/darrel/.config/fish
+if [ -f /tmp/config.fish ]; then
+    cp /tmp/config.fish /home/darrel/.config/fish/config.fish
+    rm -f /tmp/config.fish
+fi
+if [ -f /tmp/starship.toml ]; then
+    cp /tmp/starship.toml /home/darrel/.config/starship.toml
+    rm -f /tmp/starship.toml
+fi
+chown -R darrel:darrel /home/darrel/.config
 
 # Setup sshd wrapper to maintain kernel UTS hostname
 if [ ! -f /usr/sbin/sshd.real ]; then
