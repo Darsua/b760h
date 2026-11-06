@@ -43,11 +43,6 @@ rm -f /cache/alpine/run/*.pid /cache/alpine/var/run/*.pid 2>/dev/null || true
 # 7. Start OpenSSH daemon
 /system/xbin/busybox chroot /cache/alpine /usr/sbin/sshd 2>/dev/null
 
-# 7b. Start AdGuard Home if installed
-if [ -f /cache/alpine/usr/local/bin/adguard-service ]; then
-    /system/xbin/busybox chroot /cache/alpine /bin/sh -c "export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && /usr/local/bin/adguard-service start" >/dev/null 2>&1
-fi
-
 # 8. Disarm Android 5-minute boot failure watchdog
 /system/bin/setprop sys.boot_completed 1
 /system/bin/setprop dev.bootcomplete 1
