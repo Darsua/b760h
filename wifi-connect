@@ -1,8 +1,19 @@
 #!/bin/sh
-# Simple Wi-Fi connector for ZTE B760H
+# Lean Wi-Fi connector for ZTE ZXV10 B760H
+
+if [ "$(id -u)" -ne 0 ]; then
+    if command -v sudo >/dev/null 2>&1; then
+        exec sudo "$0" "$@"
+    elif command -v doas >/dev/null 2>&1; then
+        exec doas "$0" "$@"
+    else
+        echo "Error: wifi-connect requires root privileges to configure network." >&2
+        exit 1
+    fi
+fi
 
 if [ -z "$1" ]; then
-    echo "Usage: sudo wifi-connect <SSID> [PASSWORD]"
+    echo "Usage: wifi-connect <SSID> [PASSWORD]"
     exit 1
 fi
 
@@ -16,11 +27,37 @@ if [ ! -f "$CONF" ]; then
 fi
 
 if [ ! -f "$CONF" ]; then
-    echo "Error: cannot access $CONF"
+    echo "Error: cannot access $CONF" >&2
     exit 1
 fi
 
 echo "Configuring network '$SSID'..."
+
+# Remove any existing configuration block for this SSID to avoid duplicates
+if grep -q "ssid=\"$SSID\"" "$CONF" 2>/dev/null; then
+    awk -v target="ssid=\"$SSID\"" '
+    BEGIN { inside = 0 }
+    /^network=\{/ {
+        block = $0 "\n"
+        inside = 1
+        has_target = 0
+        next
+    }
+    inside {
+        block = block $0 "\n"
+        if ($0 ~ target) has_target = 1
+        if (/^\}/) {
+            inside = 0
+            if (!has_target) printf "%s", block
+            block = ""
+        }
+        next
+    }
+    { print }
+    ' "$CONF" > "$CONF.tmp" && mv "$CONF.tmp" "$CONF"
+    chmod 660 "$CONF"
+    chown system:wifi "$CONF" 2>/dev/null || chown root:root "$CONF"
+fi
 
 if [ -n "$PASS" ]; then
     cat << EON >> "$CONF"
@@ -43,23 +80,26 @@ network={
 EON
 fi
 
+chmod 660 "$CONF"
+chown system:wifi "$CONF" 2>/dev/null || chown root:root "$CONF"
+
 echo "Reloading Wi-Fi service..."
 pkill -HUP wpa_supplicant 2>/dev/null || true
 
-echo "Associating and acquiring IP address..."
+echo "Associating and requesting DHCP lease..."
 for i in 1 2 3 4 5; do
     sleep 2
-    IP=$(ip -4 addr show wlan0 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1)
+    IP=$(ip -4 addr show wlan0 2>/dev/null | awk '/inet / {split($2, a, "/"); print a[1]}')
     if [ -n "$IP" ]; then
-        echo "Successfully connected! wlan0 IP: $IP"
+        echo "Successfully connected to '$SSID'! wlan0 IP: $IP"
         exit 0
     fi
 done
 
 udhcpc -i wlan0 -n -q 2>/dev/null
-IP=$(ip -4 addr show wlan0 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1)
+IP=$(ip -4 addr show wlan0 2>/dev/null | awk '/inet / {split($2, a, "/"); print a[1]}')
 if [ -n "$IP" ]; then
-    echo "Successfully connected! wlan0 IP: $IP"
+    echo "Successfully connected to '$SSID'! wlan0 IP: $IP"
 else
-    echo "Association initiated. Check 'ip addr show wlan0' or /usr/local/bin/system-status."
+    echo "Association initiated. Check 'wifi-scan' or 'system-status' to verify connection."
 fi

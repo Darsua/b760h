@@ -220,8 +220,14 @@ chmod 755 \
 cat << 'REBOOT_EOF' > /usr/local/bin/reboot
 #!/bin/sh
 if [ "$(id -u)" -ne 0 ]; then
-    echo "reboot: Need root privileges (try 'sudo reboot')"
-    exit 1
+    if command -v sudo >/dev/null 2>&1; then
+        exec sudo "$0" "$@"
+    elif command -v doas >/dev/null 2>&1; then
+        exec doas "$0" "$@"
+    else
+        echo "reboot: Need root privileges" >&2
+        exit 1
+    fi
 fi
 echo "Syncing disks and rebooting B760H..."
 sync
@@ -232,8 +238,14 @@ chmod 755 /usr/local/bin/reboot
 cat << 'POWEROFF_EOF' > /usr/local/bin/poweroff
 #!/bin/sh
 if [ "$(id -u)" -ne 0 ]; then
-    echo "poweroff: Need root privileges (try 'sudo poweroff')"
-    exit 1
+    if command -v sudo >/dev/null 2>&1; then
+        exec sudo "$0" "$@"
+    elif command -v doas >/dev/null 2>&1; then
+        exec doas "$0" "$@"
+    else
+        echo "poweroff: Need root privileges" >&2
+        exit 1
+    fi
 fi
 echo "Syncing disks and powering off B760H..."
 sync

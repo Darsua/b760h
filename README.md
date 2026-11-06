@@ -156,7 +156,8 @@ This automated script performs:
 
 ## 6. Local Utilities & Recovery
 
-* **System Status:** `/usr/local/bin/system-status` (clean ASCII formatting for universal terminal compatibility).
-* **Scan Wi-Fi:** `sudo wifi-scan` (shows active SSIDs and signal strength).
-* **Connect Wi-Fi:** `sudo wifi-connect <SSID> [PASSWORD]` (writes to wpa_supplicant, re-associates, runs udhcpc).
+* **System Status:** `/usr/local/bin/system-status` (zero-fork dashboard with dynamic CPU clock, thermal thresholds, and live network).
+* **Scan Wi-Fi:** `wifi-scan` (auto-escalating scan with live signal strength, channel, security, and connection status).
+* **Connect Wi-Fi:** `wifi-connect <SSID> [PASSWORD]` (auto-escalating network configuration, clean deduplication, and DHCP acquisition).
+* **Power Management:** `reboot` and `poweroff` (auto-escalating safe filesystem sync and hardware reboot/poweroff).
 * **Mirror Terminal:** `tmux a -t hdmi` from laptop mirrors the exact physical HDMI display.

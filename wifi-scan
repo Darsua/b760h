@@ -1,4 +1,63 @@
 #!/bin/sh
-# Scan and list available Wi-Fi networks
-echo "Scanning Wi-Fi networks on wlan0..."
-iw dev wlan0 scan 2>/dev/null | grep -E "SSID: " | sed 's/^[ \t]*SSID: //' | grep -v '^$' | sort -u
+# Scan and list available Wi-Fi networks with signal strength and status
+
+if [ "$(id -u)" -ne 0 ]; then
+    if command -v sudo >/dev/null 2>&1; then
+        exec sudo "$0" "$@"
+    elif command -v doas >/dev/null 2>&1; then
+        exec doas "$0" "$@"
+    else
+        echo "Error: wifi-scan requires root privileges to scan wlan0." >&2
+        exit 1
+    fi
+fi
+
+BOLD="\033[1m"
+DIM="\033[2m"
+RESET="\033[0m"
+GREEN="\033[1;32m"
+CYAN="\033[1;36m"
+
+echo "Scanning 2.4 GHz Wi-Fi networks on wlan0..."
+
+SCAN_RAW=$(iw dev wlan0 scan 2>/dev/null)
+if [ -z "$SCAN_RAW" ]; then
+    echo "Error: Unable to scan on wlan0. Is the interface up?" >&2
+    exit 1
+fi
+
+printf "\n  ${BOLD}%-24s  %10s  %6s  %-10s  %s${RESET}\n" "SSID" "SIGNAL" "CHAN" "SECURITY" "STATUS"
+printf "  ${DIM}----------------------------------------------------------------------${RESET}\n"
+
+echo "$SCAN_RAW" | awk -v bold="$BOLD" -v green="$GREEN" -v reset="$RESET" -v dim="$DIM" '
+function print_bss() {
+    if (ssid != "") {
+        sig_num = signal + 0
+        if (!(ssid in seen) || sig_num > max_sig[ssid]) {
+            seen[ssid] = 1
+            max_sig[ssid] = sig_num
+            info[ssid] = sprintf("  %-24s  %6.0f dBm  %4s    %-10s  %s", \
+                substr(ssid, 1, 24), sig_num, chan, sec, (assoc ? green "[Connected]" reset : ""))
+            order[++count] = ssid
+        }
+    }
+}
+/^BSS / {
+    print_bss()
+    ssid = ""; signal = "-100"; chan = "?"; sec = "Open"; assoc = ($0 ~ /associated/)
+}
+/^[ \t]*signal:/ { signal = $2 }
+/^[ \t]*DS Parameter set: channel/ { chan = $5 }
+/^[ \t]*primary channel:/ { if (chan == "?") chan = $4 }
+/^[ \t]*SSID:/ { $1 = ""; sub(/^[ \t]+/, ""); ssid = $0 }
+/^[ \t]*RSN:/ { sec = "WPA2" }
+/^[ \t]*WPA:/ { if (sec == "Open") sec = "WPA" }
+END {
+    print_bss()
+    for (i = 1; i <= count; i++) {
+        s = order[i]
+        printf "%04d\t%s\n", max_sig[s] + 200, info[s]
+    }
+}' | sort -k1,1nr | cut -f2-
+
+printf "\n"
