@@ -35,8 +35,10 @@ fi
 if read -r CPU_FREQ < /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq 2>/dev/null; then
     CPU_MHZ=$(( CPU_FREQ / 1000 ))
     CPU_STAT="${COLOR_TEMP}${TEMP}${RESET} @ ${CPU_MHZ}MHz"
+    RAW_CPU="${TEMP} @ ${CPU_MHZ}MHz"
 else
     CPU_STAT="${COLOR_TEMP}${TEMP}${RESET}"
+    RAW_CPU="${TEMP}"
 fi
 
 # Uptime (Pure shell built-in read)
@@ -126,11 +128,27 @@ else
     NET_DISPLAY="offline"
 fi
 
+# Dynamic width calculation (zero-fork)
+# Left column width: 2 ("· ") + 10 (label) + 1 (space) + 18 (value) + 2 (gap) = 33 chars
+# Right column label prefix: 2 ("· ") + 10 (label) + 1 (space) = 13 chars
+HDR_RAW="${HOSTNAME} · Alpine Linux v3.20 (Linux ${KERNEL} ${ARCH})"
+MAX_W=${#HDR_RAW}
+
+W_CPU=$(( 33 + 13 + ${#RAW_CPU} ))
+W_SWAP=$(( 33 + 13 + ${#SWAP_USED} + 4 + ${#SWAP_TOTAL_MB} + 1 ))
+W_NET=$(( 33 + 13 + ${#NET_DISPLAY} ))
+
+[ "$W_CPU" -gt "$MAX_W" ] && MAX_W=$W_CPU
+[ "$W_SWAP" -gt "$MAX_W" ] && MAX_W=$W_SWAP
+[ "$W_NET" -gt "$MAX_W" ] && MAX_W=$W_NET
+
+BAR_BUF="────────────────────────────────────────────────────────────────────────────────────────────────────"
+SEP=$(printf "%.*s" "$(( MAX_W * 3 ))" "$BAR_BUF")
+
 printf "\n"
 printf "  ${BOLD}%s${RESET} ${DIM}· Alpine Linux v3.20 (Linux %s %s)${RESET}\n" "$HOSTNAME" "$KERNEL" "$ARCH"
-printf "  ${DIM}------------------------------------------------------------${RESET}\n"
+printf "  ${DIM}%s${RESET}\n" "$SEP"
 printf "  ${CYAN}·${RESET} ${BOLD}%-10s${RESET} %-18s  ${CYAN}·${RESET} ${BOLD}%-10s${RESET} %b\n" "Uptime:" "$UPTIME" "Temp/CPU:" "$CPU_STAT"
 printf "  ${GREEN}·${RESET} ${BOLD}%-10s${RESET} %b%-18s${RESET}  ${GREEN}·${RESET} ${BOLD}%-10s${RESET} %b%s${RESET}\n" "Memory:" "$COLOR_MEM" "${MEM_USED}M / ${MEM_TOTAL_MB}M (${MEM_PCT}%)" "Swap:" "$COLOR_SWAP" "${SWAP_USED}M / ${SWAP_TOTAL_MB}M"
 printf "  ${BLUE}·${RESET} ${BOLD}%-10s${RESET} %b%-18s${RESET}  ${BLUE}·${RESET} ${BOLD}%-10s${RESET} %s\n" "Disk (/):" "$COLOR_DISK" "${DISK_USED}M / ${DISK_TOTAL}M (${DISK_PCT})" "Network:" "$NET_DISPLAY"
-printf "  ${DIM}------------------------------------------------------------${RESET}\n"
 printf "\n"
