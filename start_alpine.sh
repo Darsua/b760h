@@ -43,6 +43,9 @@ rm -f /cache/alpine/run/*.pid /cache/alpine/var/run/*.pid 2>/dev/null || true
 # 7. Start OpenSSH daemon
 /system/xbin/busybox chroot /cache/alpine /usr/sbin/sshd 2>/dev/null
 
+# 7b. Start Cloudflare Tunnel
+/system/xbin/busybox chroot /cache/alpine /usr/local/bin/cloudflared-service start 2>/dev/null
+
 # 8. Disarm Android 5-minute boot failure watchdog
 /system/bin/setprop sys.boot_completed 1
 /system/bin/setprop dev.bootcomplete 1
