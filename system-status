@@ -1,67 +1,136 @@
 #!/bin/sh
-# Lean system status for ZTE B760H
+# Lean, zero-fork optimized system status dashboard for ZTE ZXV10 B760H
 
 BOLD="\033[1m"
 DIM="\033[2m"
 RESET="\033[0m"
-CYAN="\033[1;36m"
 GREEN="\033[1;32m"
+YELLOW="\033[1;33m"
+RED="\033[1;31m"
+CYAN="\033[1;36m"
 BLUE="\033[1;34m"
 
 HOSTNAME=$(hostname 2>/dev/null)
 [ -z "$HOSTNAME" ] && HOSTNAME="b760h"
 KERNEL=$(uname -r)
+ARCH=$(uname -m)
 
-# Thermal
-TEMP_RAW=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
-if [ -n "$TEMP_RAW" ]; then
-    TEMP=$(awk "BEGIN {printf \"%.1f°C\", $TEMP_RAW/1000}")
+# Temperature & CPU Freq (Pure shell built-in reads)
+if read -r TEMP_RAW < /sys/class/thermal/thermal_zone0/temp 2>/dev/null; then
+    TEMP_INT=$(( TEMP_RAW / 1000 ))
+    TEMP_DEC=$(( (TEMP_RAW % 1000) / 100 ))
+    TEMP="${TEMP_INT}.${TEMP_DEC}°C"
+    if [ "$TEMP_INT" -ge 65 ]; then
+        COLOR_TEMP="$RED"
+    elif [ "$TEMP_INT" -ge 50 ]; then
+        COLOR_TEMP="$YELLOW"
+    else
+        COLOR_TEMP="$GREEN"
+    fi
 else
     TEMP="N/A"
+    COLOR_TEMP="$DIM"
 fi
 
-# Uptime
-UP_SECS=$(cut -d. -f1 /proc/uptime)
-DAYS=$((UP_SECS / 86400))
-HOURS=$(( (UP_SECS % 86400) / 3600 ))
-MINS=$(( (UP_SECS % 3600) / 60 ))
-if [ $DAYS -gt 0 ]; then
-    UPTIME="${DAYS}d ${HOURS}h ${MINS}m"
-elif [ $HOURS -gt 0 ]; then
-    UPTIME="${HOURS}h ${MINS}m"
+if read -r CPU_FREQ < /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq 2>/dev/null; then
+    CPU_MHZ=$(( CPU_FREQ / 1000 ))
+    CPU_STAT="${COLOR_TEMP}${TEMP}${RESET} @ ${CPU_MHZ}MHz"
 else
-    UPTIME="${MINS}m"
+    CPU_STAT="${COLOR_TEMP}${TEMP}${RESET}"
 fi
 
-# Memory & Swap (MB)
-read -r MEM_TOTAL MEM_FREE MEM_BUFF MEM_CACHE << EOM
-$(awk '/MemTotal:/ {t=$2} /MemFree:/ {f=$2} /Buffers:/ {b=$2} /^Cached:/ {c=$2} END {print t, f, b, c}' /proc/meminfo)
-EOM
+# Uptime (Pure shell built-in read)
+if read -r UP_FLOAT _ < /proc/uptime 2>/dev/null; then
+    UP_SECS=${UP_FLOAT%.*}
+    DAYS=$((UP_SECS / 86400))
+    HOURS=$(( (UP_SECS % 86400) / 3600 ))
+    MINS=$(( (UP_SECS % 3600) / 60 ))
+    if [ $DAYS -gt 0 ]; then
+        UPTIME="${DAYS}d ${HOURS}h ${MINS}m"
+    elif [ $HOURS -gt 0 ]; then
+        UPTIME="${HOURS}h ${MINS}m"
+    else
+        UPTIME="${MINS}m"
+    fi
+else
+    UPTIME="N/A"
+fi
+
+# Memory & Swap in a single pass
+MEM_TOTAL=0; MEM_FREE=0; MEM_BUFF=0; MEM_CACHE=0
+SWAP_TOTAL=0; SWAP_FREE=0
+while read -r key val _; do
+    case "$key" in
+        MemTotal:) MEM_TOTAL=$val ;;
+        MemFree:) MEM_FREE=$val ;;
+        Buffers:) MEM_BUFF=$val ;;
+        Cached:) MEM_CACHE=$val ;;
+        SwapTotal:) SWAP_TOTAL=$val ;;
+        SwapFree:) SWAP_FREE=$val ;;
+    esac
+done < /proc/meminfo
+
 MEM_USED=$(( (MEM_TOTAL - MEM_FREE - MEM_BUFF - MEM_CACHE) / 1024 ))
 MEM_TOTAL_MB=$(( MEM_TOTAL / 1024 ))
-MEM_PCT=$(( (MEM_USED * 100) / MEM_TOTAL_MB ))
+if [ "$MEM_TOTAL_MB" -gt 0 ]; then
+    MEM_PCT=$(( (MEM_USED * 100) / MEM_TOTAL_MB ))
+else
+    MEM_PCT=0
+fi
 
-read -r SWAP_TOTAL SWAP_FREE << EOS
-$(awk '/SwapTotal:/ {t=$2} /SwapFree:/ {f=$2} END {print t, f}' /proc/meminfo)
-EOS
+if [ "$MEM_PCT" -ge 85 ]; then
+    COLOR_MEM="$RED"
+elif [ "$MEM_PCT" -ge 70 ]; then
+    COLOR_MEM="$YELLOW"
+else
+    COLOR_MEM="$GREEN"
+fi
+
 SWAP_USED=$(( (SWAP_TOTAL - SWAP_FREE) / 1024 ))
 SWAP_TOTAL_MB=$(( SWAP_TOTAL / 1024 ))
+if [ "$SWAP_USED" -gt 10 ]; then
+    COLOR_SWAP="$YELLOW"
+else
+    COLOR_SWAP="$GREEN"
+fi
 
 # Storage (/cache)
-DISK_USED=$(df -m / 2>/dev/null | awk 'NR==2 {print $3}')
-DISK_TOTAL=$(df -m / 2>/dev/null | awk 'NR==2 {print $2}')
-DISK_PCT=$(df -m / 2>/dev/null | awk 'NR==2 {print $5}')
-DISK_INFO="${DISK_USED}M / ${DISK_TOTAL}M (${DISK_PCT})"
+read -r _ DISK_TOTAL DISK_USED _ DISK_PCT _ << EOD
+$(df -m / 2>/dev/null | tail -n 1)
+EOD
+DISK_PCT_NUM=$(echo "$DISK_PCT" | tr -d '%')
+if [ -n "$DISK_PCT_NUM" ] && [ "$DISK_PCT_NUM" -ge 85 ]; then
+    COLOR_DISK="$RED"
+elif [ -n "$DISK_PCT_NUM" ] && [ "$DISK_PCT_NUM" -ge 70 ]; then
+    COLOR_DISK="$YELLOW"
+else
+    COLOR_DISK="$GREEN"
+fi
 
-# IP Address
-IP_ADDR=$(ip -4 addr show wlan0 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1)
-[ -z "$IP_ADDR" ] && IP_ADDR="offline"
+# Network (auto-detect primary interface & Wi-Fi details)
+NET_LINE=$(ip -4 addr show 2>/dev/null | awk '/inet / && !/127.0.0.1/ {split($2, a, "/"); print a[1], $NF; exit}')
+if [ -n "$NET_LINE" ]; then
+    IP_ADDR=${NET_LINE% *}
+    IFACE=${NET_LINE#* }
+    if [ "$IFACE" = "wlan0" ]; then
+        WIFI_INFO=$(iw dev wlan0 link 2>/dev/null | awk '/SSID:/ {ssid=$2} /signal:/ {sig=$2 " " $3} END {if (ssid) print ssid, sig}')
+        if [ -n "$WIFI_INFO" ]; then
+            NET_DISPLAY="${IP_ADDR} (${WIFI_INFO})"
+        else
+            NET_DISPLAY="${IP_ADDR} (wlan0)"
+        fi
+    else
+        NET_DISPLAY="${IP_ADDR} (${IFACE})"
+    fi
+else
+    NET_DISPLAY="offline"
+fi
 
 printf "\n"
-printf "  ${BOLD}%s${RESET} ${DIM}· Alpine Linux v3.20 (Linux %s)${RESET}\n" "$HOSTNAME" "$KERNEL"
+printf "  ${BOLD}%s${RESET} ${DIM}· Alpine Linux v3.20 (Linux %s %s)${RESET}\n" "$HOSTNAME" "$KERNEL" "$ARCH"
 printf "  ${DIM}------------------------------------------------------------${RESET}\n"
-printf "  ${CYAN}·${RESET} ${BOLD}%-10s${RESET} %-18s  ${CYAN}·${RESET} ${BOLD}%-10s${RESET} %s\n" "Uptime:" "$UPTIME" "Temp:" "$TEMP"
-printf "  ${GREEN}·${RESET} ${BOLD}%-10s${RESET} %-18s  ${GREEN}·${RESET} ${BOLD}%-10s${RESET} %s\n" "Memory:" "${MEM_USED}M / ${MEM_TOTAL_MB}M (${MEM_PCT}%)" "Swap:" "${SWAP_USED}M / ${SWAP_TOTAL_MB}M"
-printf "  ${BLUE}·${RESET} ${BOLD}%-10s${RESET} %-18s  ${BLUE}·${RESET} ${BOLD}%-10s${RESET} %s\n" "Disk (/):" "$DISK_INFO" "IP (wlan):" "$IP_ADDR"
+printf "  ${CYAN}·${RESET} ${BOLD}%-10s${RESET} %-18s  ${CYAN}·${RESET} ${BOLD}%-10s${RESET} %b\n" "Uptime:" "$UPTIME" "Temp/CPU:" "$CPU_STAT"
+printf "  ${GREEN}·${RESET} ${BOLD}%-10s${RESET} %b%-18s${RESET}  ${GREEN}·${RESET} ${BOLD}%-10s${RESET} %b%s${RESET}\n" "Memory:" "$COLOR_MEM" "${MEM_USED}M / ${MEM_TOTAL_MB}M (${MEM_PCT}%)" "Swap:" "$COLOR_SWAP" "${SWAP_USED}M / ${SWAP_TOTAL_MB}M"
+printf "  ${BLUE}·${RESET} ${BOLD}%-10s${RESET} %b%-18s${RESET}  ${BLUE}·${RESET} ${BOLD}%-10s${RESET} %s\n" "Disk (/):" "$COLOR_DISK" "${DISK_USED}M / ${DISK_TOTAL}M (${DISK_PCT})" "Network:" "$NET_DISPLAY"
 printf "  ${DIM}------------------------------------------------------------${RESET}\n"
 printf "\n"
