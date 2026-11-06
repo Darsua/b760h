@@ -5,9 +5,20 @@ CONF="/opt/AdGuardHome/AdGuardHome.yaml"
 WORKDIR="/opt/AdGuardHome/data"
 LOGFILE="/var/log/adguardhome.log"
 
+is_running() {
+    [ -f "$PIDFILE" ] || return 1
+    PID=$(cat "$PIDFILE" 2>/dev/null)
+    [ -n "$PID" ] || return 1
+    if kill -0 "$PID" 2>/dev/null && grep -qa "AdGuardHome" "/proc/$PID/cmdline" 2>/dev/null; then
+        return 0
+    fi
+    rm -f "$PIDFILE"
+    return 1
+}
+
 case "$1" in
     start)
-        if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+        if is_running; then
             echo "AdGuard Home is already running (PID $(cat "$PIDFILE"))"
             exit 0
         fi
@@ -15,7 +26,7 @@ case "$1" in
         mkdir -p "$WORKDIR" /var/log
         nohup "$BIN" -c "$CONF" -w "$WORKDIR" --pidfile "$PIDFILE" -l "$LOGFILE" >/dev/null 2>&1 &
         sleep 1
-        if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+        if is_running; then
             echo "AdGuard Home started successfully (PID $(cat "$PIDFILE"))"
         else
             echo "Failed to start AdGuard Home. Check $LOGFILE"
@@ -23,7 +34,7 @@ case "$1" in
         fi
         ;;
     stop)
-        if [ -f "$PIDFILE" ]; then
+        if is_running; then
             PID=$(cat "$PIDFILE")
             echo "Stopping AdGuard Home (PID $PID)..."
             kill "$PID" 2>/dev/null || true
@@ -39,7 +50,7 @@ case "$1" in
         "$0" start
         ;;
     status)
-        if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+        if is_running; then
             echo "AdGuard Home is running (PID $(cat "$PIDFILE"))"
         else
             echo "AdGuard Home is stopped"

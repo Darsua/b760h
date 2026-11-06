@@ -104,7 +104,7 @@ Once the box has booted into Android and has an IP address:
 
 ```bash
 cd ~/Projects/b760h
-./provision_alpine.sh 192.168.8.142
+./provision_alpine.sh 192.168.0.5
 ```
 
 This automated script performs:

@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TARGET_IP="${1:-192.168.8.142}"
+TARGET_IP="${1:-192.168.0.5}"
 ADB_TARGET="${TARGET_IP}:5555"
 
 echo "=== [1/7] Connecting to B760H via ADB ($ADB_TARGET) ==="
