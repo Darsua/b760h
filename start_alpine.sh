@@ -31,20 +31,17 @@ done
 # 5. Set system hostname inside chroot
 /system/xbin/busybox chroot /cache/alpine /bin/hostname b760h 2>/dev/null || true
 
-# 6. Sync system clock via NTP inside Alpine (backgrounded)
-(
-    sleep 2
-    /system/xbin/busybox chroot /cache/alpine /bin/sh -c "export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && ntpd -n -q -p pool.ntp.org || ntpd -n -q -p time.google.com"
-) &
-
-# 6b. Clean stale PID files from previous boots
+# 6. Clean stale PID files from previous boots
 rm -f /cache/alpine/run/*.pid /cache/alpine/var/run/*.pid 2>/dev/null || true
 
 # 7. Start OpenSSH daemon
 /system/xbin/busybox chroot /cache/alpine /usr/sbin/sshd 2>/dev/null
 
-# 7b. Start Cloudflare Tunnel
-/system/xbin/busybox chroot /cache/alpine /usr/local/bin/cloudflared-service start 2>/dev/null
+# 7b. Sync system clock via NTP inside Alpine, then start Cloudflare Tunnel (backgrounded)
+(
+    sleep 2
+    /system/xbin/busybox chroot /cache/alpine /bin/sh -c "export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && (ntpd -n -q -p pool.ntp.org || ntpd -n -q -p time.google.com || true) && /usr/local/bin/cloudflared-service start"
+) &
 
 # 8. Disarm Android 5-minute boot failure watchdog
 /system/bin/setprop sys.boot_completed 1

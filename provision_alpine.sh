@@ -94,6 +94,7 @@ push_as_root "$SCRIPT_DIR/hdmi-terminal" "/cache/alpine/usr/local/bin/hdmi-termi
 push_as_root "$SCRIPT_DIR/system-status" "/cache/alpine/usr/local/bin/system-status"
 push_as_root "$SCRIPT_DIR/wifi-scan" "/cache/alpine/usr/local/bin/wifi-scan"
 push_as_root "$SCRIPT_DIR/wifi-connect" "/cache/alpine/usr/local/bin/wifi-connect"
+push_as_root "$SCRIPT_DIR/cloudflared-service" "/cache/alpine/usr/local/bin/cloudflared-service"
 
 echo "Syncing system time from host..."
 CURRENT_EPOCH=$(date +%s)
@@ -215,7 +216,8 @@ chmod 755 \
     /usr/local/bin/hdmi-terminal \
     /usr/local/bin/system-status \
     /usr/local/bin/wifi-scan \
-    /usr/local/bin/wifi-connect
+    /usr/local/bin/wifi-connect \
+    /usr/local/bin/cloudflared-service
 
 cat << 'REBOOT_EOF' > /usr/local/bin/reboot
 #!/bin/sh

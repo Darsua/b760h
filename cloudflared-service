@@ -1,0 +1,76 @@
+#!/bin/sh
+export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+PIDFILE="/run/cloudflared.pid"
+LOGFILE="/var/log/cloudflared.log"
+TOKEN_FILE="/etc/cloudflared/token"
+
+is_running() {
+    [ -f "$PIDFILE" ] && read -r PID < "$PIDFILE" && [ -n "$PID" ] && [ -d "/proc/$PID" ]
+}
+
+require_root() {
+    if [ "$(id -u)" -ne 0 ]; then
+        if command -v sudo >/dev/null 2>&1; then
+            exec sudo "$0" "$@"
+        elif command -v doas >/dev/null 2>&1; then
+            exec doas "$0" "$@"
+        else
+            echo "cloudflared-service: root privileges required" >&2
+            exit 1
+        fi
+    fi
+}
+
+case "$1" in
+    start)
+        require_root "$@"
+        if is_running; then
+            echo "cloudflared is already running (PID $PID)"
+            exit 0
+        fi
+        if [ ! -f "$TOKEN_FILE" ]; then
+            echo "Error: $TOKEN_FILE not found." >&2
+            exit 1
+        fi
+        read -r TOKEN < "$TOKEN_FILE"
+        if [ -z "$TOKEN" ]; then
+            echo "Error: $TOKEN_FILE is empty." >&2
+            exit 1
+        fi
+        echo "Starting cloudflared tunnel..."
+        nohup /usr/local/bin/cloudflared tunnel --no-autoupdate run --token "$TOKEN" > "$LOGFILE" 2>&1 &
+        echo $! > "$PIDFILE"
+        echo "cloudflared started (PID $(cat "$PIDFILE"))"
+        ;;
+    stop)
+        require_root "$@"
+        if is_running; then
+            echo "Stopping cloudflared (PID $PID)..."
+            kill "$PID" 2>/dev/null || true
+            rm -f "$PIDFILE"
+        else
+            killall cloudflared 2>/dev/null || true
+            rm -f "$PIDFILE"
+            echo "Stopped cloudflared"
+        fi
+        ;;
+    status)
+        if is_running; then
+            echo "cloudflared is running (PID $PID)"
+        else
+            echo "cloudflared is stopped"
+            exit 1
+        fi
+        ;;
+    restart)
+        require_root "$@"
+        "$0" stop
+        sleep 1
+        "$0" start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac
