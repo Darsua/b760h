@@ -37,10 +37,10 @@ rm -f /cache/alpine/run/*.pid /cache/alpine/var/run/*.pid 2>/dev/null || true
 # 7. Start OpenSSH daemon
 /system/xbin/busybox chroot /cache/alpine /usr/sbin/sshd 2>/dev/null
 
-# 7b. Sync system clock via NTP inside Alpine, then start Cloudflare Tunnel (backgrounded)
+# 7b. Sync system clock via NTP, start Cloudflare Tunnel, and supervise Wi-Fi/tunnel (backgrounded)
 (
     sleep 2
-    /system/xbin/busybox chroot /cache/alpine /bin/sh -c "export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && (ntpd -n -q -p pool.ntp.org || ntpd -n -q -p time.google.com || true) && /usr/local/bin/cloudflared-service start"
+    /system/xbin/busybox chroot /cache/alpine /bin/sh -c "export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && iw dev wlan0 set power_save off 2>/dev/null || true; (ntpd -n -q -p pool.ntp.org || ntpd -n -q -p time.google.com || true) && /usr/local/bin/cloudflared-service start; exec /usr/local/bin/net-watchdog"
 ) &
 
 # 8. Disarm Android 5-minute boot failure watchdog

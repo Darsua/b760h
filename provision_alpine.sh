@@ -95,6 +95,7 @@ push_as_root "$SCRIPT_DIR/system-status" "/cache/alpine/usr/local/bin/system-sta
 push_as_root "$SCRIPT_DIR/wifi-scan" "/cache/alpine/usr/local/bin/wifi-scan"
 push_as_root "$SCRIPT_DIR/wifi-connect" "/cache/alpine/usr/local/bin/wifi-connect"
 push_as_root "$SCRIPT_DIR/cloudflared-service" "/cache/alpine/usr/local/bin/cloudflared-service"
+push_as_root "$SCRIPT_DIR/net-watchdog" "/cache/alpine/usr/local/bin/net-watchdog"
 
 echo "Syncing system time from host..."
 CURRENT_EPOCH=$(date +%s)
@@ -217,7 +218,8 @@ chmod 755 \
     /usr/local/bin/system-status \
     /usr/local/bin/wifi-scan \
     /usr/local/bin/wifi-connect \
-    /usr/local/bin/cloudflared-service
+    /usr/local/bin/cloudflared-service \
+    /usr/local/bin/net-watchdog
 
 cat << 'REBOOT_EOF' > /usr/local/bin/reboot
 #!/bin/sh

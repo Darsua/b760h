@@ -1,0 +1,44 @@
+#!/bin/sh
+# Lightweight Wi-Fi + cloudflared supervisor for ZTE B760H
+export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+LOGFILE="/var/log/net-watchdog.log"
+CHECK_INTERVAL=30
+
+log() {
+    printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" >> "$LOGFILE"
+}
+
+# Disable Wi-Fi power saving on startup to prevent RX stalls
+iw dev wlan0 set power_save off 2>/dev/null || true
+
+while true; do
+    sleep "$CHECK_INTERVAL"
+
+    # 1. Check Wi-Fi L2 association
+    if ! iw dev wlan0 link 2>/dev/null | grep -q "Connected to"; then
+        log "wlan0 disconnected; kicking wpa_supplicant..."
+        ip link set wlan0 up 2>/dev/null || true
+        iw dev wlan0 set power_save off 2>/dev/null || true
+        pkill -HUP wpa_supplicant 2>/dev/null || true
+        sleep 8
+    fi
+
+    # 2. Check IPv4 address & default route on wlan0
+    IP=$(ip -4 addr show wlan0 2>/dev/null | awk '/inet / {print $2; exit}')
+    DEF_GW=$(ip -4 route show default dev wlan0 2>/dev/null)
+    if [ -z "$IP" ] || [ -z "$DEF_GW" ]; then
+        if iw dev wlan0 link 2>/dev/null | grep -q "Connected to"; then
+            log "wlan0 missing IP/route; running udhcpc..."
+            udhcpc -i wlan0 -t 5 -T 2 -n -q >/dev/null 2>&1 || true
+        fi
+    fi
+
+    # 3. Ensure cloudflared stays running when network is up
+    if [ -n "$(ip -4 addr show wlan0 2>/dev/null | awk '/inet / {print $2; exit}')" ]; then
+        if ! /usr/local/bin/cloudflared-service status >/dev/null 2>&1; then
+            log "cloudflared stopped; restarting..."
+            /usr/local/bin/cloudflared-service start >> "$LOGFILE" 2>&1 || true
+        fi
+    fi
+done
